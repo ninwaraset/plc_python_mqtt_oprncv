@@ -1,6 +1,8 @@
 import serial
 from time import sleep
 import paho.mqtt.client as mqtt
+
+
 ser = serial.Serial(port = "COM7", baudrate=57600,bytesize=8, timeout=2, stopbits=serial.STOPBITS_ONE)
 
 
@@ -12,10 +14,6 @@ cap = cv2.VideoCapture(1)
 
 
 def check_CAM():
-
-    # width = 0
-
-
 
     while True:
         #cap = cv2.VideoCapture(1)
@@ -67,18 +65,6 @@ def check_CAM():
     cv2.destroyAllWindows()
 
 
-
-
-
-
-
-
-
-
-
-
-
-
 topic_mqtt = "python_plc"
 received_message = ""
 
@@ -114,62 +100,50 @@ client.connect(broker_address, port)
 
 # Start the MQTT loop in a separate thread
 client.loop_start()
-couter_call_data = 0 
-while 1:
+
+
+couter_call_data = 0 #set variable timer for count time to received msg from plc
+while 1: #loop 
     
-    # couter_call_data +=1
-    # print(couter_call_data)
-    # if couter_call_data == 50 :
-    #     received_message = "TT"
-    #     couter_call_data =0
-    
-    txt = received_message 
-    
-    
-    if txt != '':
+    txt = received_message #keep variable form mqtt
+
+    if txt != '': #if received cmd msg from mqtt
+
         print("-------------------------")
         print("command to PLC : " +  txt)
-        ser.write(txt.encode())
+        ser.write(txt.encode()) #sent msg to plc
         print("-------------------------")
         
-    else :
-        couter_call_data +=1
-        # print(couter_call_data)
-        if couter_call_data == 50 :
-            txt = "TT"
+    else : #if not received cmd msg from mqtt
+        couter_call_data +=1  #count time
+        if couter_call_data == 50 : #if timer complate
+            txt = "TT" # set cmd msg sent to plc for want to receive msg form plc
             print("-------------------------")
             print("command to PLC : " +  txt)
-            ser.write(txt.encode())
+            ser.write(txt.encode()) #sent msg to plc
             print("-------------------------")
-            couter_call_data =0
+            couter_call_data =0 #reset timer
             
+    received_message = '' #reset variable form mqtt
 
     
-    received_message = ''
-
-    
-    if txt == "TT":
-        
+    if txt == "TT":  #if sent cmd msg to receive msg form plc
         
         couter_round = 0
         while(1):
-            sleep(0.5)
-            if(ser.in_waiting > 0):
-                serialData = ser.readline()
+            sleep(0.5) # sleep wait 0.5 sec
+            if(ser.in_waiting > 0): # if dont have msg receive form plc in time
+                serialData = ser.readline() #receive msg form plc 
                 print(serialData)
-                head = serialData[0:2].decode()
-                # tail = serialData[-2:].decode()
+                head = serialData[0:2].decode()  #keep head byte form msg
                 print("HEAD : "+str(head))
-                # print("tail : "+str(tail) )
                 
-                if head == "EA" :
-                    captured_data = serialData[2:4]
-                    captured_data_1 = serialData[4:6]
-                    captured_data_2 = serialData[6:8]
-                    captured_data_3 = serialData[8:10]
-                    # print(captured_data)
-                    # print(captured_data[0:2].hex(sep=' '))
-                    int_val_0 = int.from_bytes(captured_data[0:2], "little", signed="True")
+                if head == "EA" : #check head 
+                    captured_data = serialData[2:4] #keep data form msg
+                    captured_data_1 = serialData[4:6] #keep data form msg
+                    captured_data_2 = serialData[6:8] #keep data form msg
+                    captured_data_3 = serialData[8:10] #keep data form msg
+                    int_val_0 = int.from_bytes(captured_data[0:2], "little", signed="True") #tranfrom byte to int
                     int_val_1 = int.from_bytes(captured_data_1[0:2], "little", signed="True")
                     int_val_2 = int.from_bytes(captured_data_2[0:2], "little", signed="True")
                     int_val_3 = int.from_bytes(captured_data_3[0:2], "little", signed="True")
@@ -178,41 +152,37 @@ while 1:
                     print('output "BLUE"     : '+ str(int_val_2) + ' ea.')
                     print('output "NOT BLUE" : '+ str(int_val_3) + ' ea.')
                     print("----------------------------------------------------------")
-                    client.publish(topic_mqtt+"/0",int_val_0)
+                    client.publish(topic_mqtt+"/0",int_val_0) #sent mqtt msg in topic ..../0
                     client.publish(topic_mqtt+"/1",int_val_1)
                     client.publish(topic_mqtt+"/2",int_val_2)
                     client.publish(topic_mqtt+"/3",int_val_3)
-                    # print("Reading : "+captured_data)
                     client.publish(topic_mqtt+"/camera",0)
                     sleep(0.5)
                     break
-                elif head == "CP" :
-                    camera_confirm = check_CAM()
-                    # camera_confirm = input("openCV detect : ")
-                    # sleep(2)
-                    # camera_confirm = "1"
-                    print(camera_confirm)
-                    if camera_confirm == 1 :
-                        
-                        ser.write("OK".encode())
-                        print("use ok")
-                    else :
-                        ser.write("NO".encode())
-                        print("use no")
+                elif head == "CP" : #check head 
+                    camera_confirm = check_CAM() #call function opencv and set check variable
 
+                    print(camera_confirm)
+                    if camera_confirm == 1 : # if check opencv passs 
+                        ser.write("OK".encode()) #sent result opencv msg to plc 
+                        print("use ok")
+                    else : # if check opencv not passs 
+                        ser.write("NO".encode())#sent result opencv msg to plc 
+                        print("use no")
                     sleep(5)
 
-                    client.publish(topic_mqtt+"/camera",1)
+                    client.publish(topic_mqtt+"/camera",1) 
                     
                     sleep(0.5)
                     break
-                else :
+                else :  #for what???
                     client.publish(topic_mqtt+"/camera",0)
                     break
-            else:
+            else: # if dont have msg receive form plc in time
                 print("waiting data...")
                 couter_round += 1
-            if couter_round  >= 1:
+
+            if couter_round  >= 1: #for what???
                 break
             
 
